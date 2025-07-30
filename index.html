@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProductTracker • Real-time Availability Monitor</title>
+    
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script>
+        // Initialize EmailJS with your User ID
+        emailjs.init('Q4aGh0sWieNQR66oY');
+    </script>
+    
     <style>
         * {
             margin: 0;
@@ -527,6 +535,17 @@
             color: #ffd435;
             border: 1px solid rgba(255, 212, 53, 0.3);
         }
+
+        .email-status {
+            background: rgba(70, 130, 180, 0.2);
+            color: #4682b4;
+            border: 1px solid rgba(70, 130, 180, 0.3);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 8px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -595,8 +614,8 @@
                             <span class="status-value" id="availableCount">0</span>
                         </div>
                         <div class="status-row">
-                            <span class="status-label">Alerts triggered:</span>
-                            <span class="status-value" id="alertsTriggered">0</span>
+                            <span class="status-label">Emails Sent:</span>
+                            <span class="status-value" id="emailsSent">0</span>
                         </div>
                     </div>
                 </div>
@@ -634,6 +653,9 @@
                         <label class="form-label">📧 Email Notifications</label>
                         <input type="email" class="form-input" id="emailNotify" 
                                placeholder="your-email@example.com">
+                        <div class="email-status" id="emailStatus" style="display: none;">
+                            📧 Email service ready
+                        </div>
                     </div>
                 </div>
 
@@ -646,6 +668,9 @@
                     </button>
                     <button class="btn success" onclick="checkNow()">
                         <span>🔍</span> Check Now
+                    </button>
+                    <button class="btn secondary" onclick="testEmail()">
+                        <span>📧</span> Test Email
                     </button>
                     <button class="btn secondary" onclick="requestNotificationPermission()">
                         <span>🔔</span> Enable Alerts
@@ -669,7 +694,7 @@
         let isMonitoring = false;
         let totalChecks = 0;
         let availableCount = 0;
-        let alertsTriggered = 0;
+        let emailsSent = 0;
         let startTime = null;
 
         // Enhanced simulation logic
@@ -785,57 +810,54 @@
 
         async function sendEmailNotification(email, productName, price) {
             try {
-                // Option 1: Using EmailJS (Free service for client-side emails)
-                // You need to sign up at https://www.emailjs.com/ and get your keys
-                
-                // Uncomment and configure these lines after setting up EmailJS:
-                /*
+                showNotification('📤 Sending email notification...', 'info');
+
                 const templateParams = {
                     to_email: email,
+                    to_name: email.split('@')[0], // Use part before @ as name
                     product_name: productName,
                     price: price,
-                    product_url: document.getElementById('productUrl').value
+                    product_url: document.getElementById('productUrl').value,
+                    current_time: new Date().toLocaleString()
                 };
-                
-                await emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams, 'YOUR_USER_ID');
-                showNotification(`📧 Email sent to ${email}`, 'success');
-                */
-                
-                // Option 2: Using a webhook service like Formspree
-                // You can sign up at https://formspree.io/ for free
-                /*
-                const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        email: email,
-                        subject: `🛒 ${productName} is now available!`,
-                        message: `Great news! ${productName} is back in stock at ${price}!\n\nCheck it out: ${document.getElementById('productUrl').value}`
-                    })
-                });
-                
-                if (response.ok) {
-                    showNotification(`📧 Email sent to ${email}`, 'success');
-                } else {
-                    throw new Error('Failed to send email');
-                }
-                */
-                
-                // Current: Simulation mode (remove this when using real email)
-                setTimeout(() => {
-                    showNotification(`📧 Email simulation sent to ${email} (Setup real email service to receive actual emails)`, 'info');
-                }, 1000);
+
+                const response = await emailjs.send(
+                    'service_79u35vi',    // Your service ID
+                    'template_3xohvip',   // Your template ID
+                    templateParams
+                );
+
+                console.log('Email sent successfully:', response);
+                emailsSent++;
+                updateStats();
+                showNotification(`📧 Alert sent to ${email}!`, 'success');
                 
             } catch (error) {
                 console.error('Email error:', error);
-                showNotification('❌ Failed to send email notification', 'error');
+                showNotification(`❌ Failed to send email: ${error.text || error.message}`, 'error');
             }
         }
+
+        async function testEmail() {
+            const email = document.getElementById('emailNotify').value;
+            if (!email) {
+                showNotification('Please enter your email address first', 'error');
+                return;
+            }
+
+            const productName = document.getElementById('productName').value || 'Test Product';
+            
+            try {
+                await sendEmailNotification(email, productName, '₹999 (Test Price)');
+            } catch (error) {
+                console.error('Test email failed:', error);
+            }
+        }
+
+        function updateStats() {
             document.getElementById('totalChecks').textContent = totalChecks;
             document.getElementById('availableCount').textContent = availableCount;
-            document.getElementById('alertsTriggered').textContent = alertsTriggered;
+            document.getElementById('emailsSent').textContent = emailsSent;
             updateUptime();
         }
 
@@ -851,7 +873,6 @@
 
             if (result.available) {
                 availableCount++;
-                alertsTriggered++;
                 
                 updateStatus(result, true);
                 showNotification(`🎉 ${productName} is now available at ${result.price}!`, 'success');
@@ -864,9 +885,10 @@
                     });
                 }
 
+                // Send email notification
                 const email = document.getElementById('emailNotify').value;
                 if (email) {
-                    sendEmailNotification(email, productName, result.price);
+                    await sendEmailNotification(email, productName, result.price);
                 }
             } else {
                 updateStatus(result, false);
@@ -953,6 +975,17 @@
             }
         });
 
+        // Show email status when email is entered
+        document.getElementById('emailNotify').addEventListener('input', function() {
+            const emailStatus = document.getElementById('emailStatus');
+            if (this.value && this.value.includes('@')) {
+                emailStatus.style.display = 'block';
+                emailStatus.textContent = '📧 Email notifications ready';
+            } else {
+                emailStatus.style.display = 'none';
+            }
+        });
+
         // Auto-extract product name from URL
         document.getElementById('productUrl').addEventListener('input', function() {
             const url = this.value;
@@ -986,11 +1019,17 @@
                 document.getElementById('selectedProduct').textContent = initialName;
             }
 
+            // Check if email is already entered
+            const initialEmail = document.getElementById('emailNotify').value;
+            if (initialEmail && initialEmail.includes('@')) {
+                document.getElementById('emailStatus').style.display = 'block';
+            }
+
             // Update uptime every 30 seconds
             setInterval(updateUptime, 30000);
             
             setTimeout(() => {
-                showNotification('Welcome to ProductTracker! Configure your settings and start monitoring.', 'info');
+                showNotification('✨ ProductTracker loaded! EmailJS is ready for notifications.', 'success');
             }, 1000);
         });
 
