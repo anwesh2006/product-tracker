@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ProductTracker • Real-time Availability Monitor</title>
     
-    <!-- EmailJS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <!-- Custom Email Backend Configuration -->
     <script>
-        // Initialize EmailJS with your User ID
-        emailjs.init('Q4aGh0sWieNQR66oY');
+        // Backend API URL - Update this to your deployed backend URL
+        const EMAIL_API_URL = 'http://localhost:3000';
     </script>
     
     <style>
@@ -812,7 +811,7 @@
             try {
                 showNotification('📤 Sending email notification...', 'info');
 
-                const templateParams = {
+                const emailData = {
                     to_email: email,
                     to_name: email.split('@')[0], // Use part before @ as name
                     product_name: productName,
@@ -821,20 +820,28 @@
                     current_time: new Date().toLocaleString()
                 };
 
-                const response = await emailjs.send(
-                    'service_79u35vi',    // Your service ID
-                    'template_3xohvip',   // Your template ID
-                    templateParams
-                );
+                const response = await fetch(`${EMAIL_API_URL}/send-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(emailData)
+                });
 
-                console.log('Email sent successfully:', response);
-                emailsSent++;
-                updateStats();
-                showNotification(`📧 Alert sent to ${email}!`, 'success');
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log('Email sent successfully:', result);
+                    emailsSent++;
+                    updateStats();
+                    showNotification(`📧 Alert sent to ${email}!`, 'success');
+                } else {
+                    throw new Error(result.error || 'Failed to send email');
+                }
                 
             } catch (error) {
                 console.error('Email error:', error);
-                showNotification(`❌ Failed to send email: ${error.text || error.message}`, 'error');
+                showNotification(`❌ Failed to send email: ${error.message}`, 'error');
             }
         }
 
@@ -1029,7 +1036,7 @@
             setInterval(updateUptime, 30000);
             
             setTimeout(() => {
-                showNotification('✨ ProductTracker loaded! EmailJS is ready for notifications.', 'success');
+                showNotification('✨ ProductTracker loaded! Email service is ready for notifications.', 'success');
             }, 1000);
         });
 
