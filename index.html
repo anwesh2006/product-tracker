@@ -810,6 +810,8 @@
         async function sendEmailNotification(email, productName, price) {
             try {
                 showNotification('📤 Sending email notification...', 'info');
+                console.log('Attempting to send email to:', email);
+                console.log('Backend URL:', EMAIL_API_URL);
 
                 const emailData = {
                     to_email: email,
@@ -820,6 +822,8 @@
                     current_time: new Date().toLocaleString()
                 };
 
+                console.log('Email data:', emailData);
+
                 const response = await fetch(`${EMAIL_API_URL}/send-email`, {
                     method: 'POST',
                     headers: {
@@ -828,20 +832,31 @@
                     body: JSON.stringify(emailData)
                 });
 
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.json();
+                console.log('Response result:', result);
 
                 if (result.success) {
                     console.log('Email sent successfully:', result);
                     emailsSent++;
                     updateStats();
-                    showNotification(`📧 Alert sent to ${email}!`, 'success');
+                    showNotification(`📧 Alert sent to ${email}! (${result.message})`, 'success');
                 } else {
                     throw new Error(result.error || 'Failed to send email');
                 }
                 
             } catch (error) {
                 console.error('Email error:', error);
-                showNotification(`❌ Failed to send email: ${error.message}`, 'error');
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    showNotification(`❌ Cannot connect to email service. Make sure the backend is running at ${EMAIL_API_URL}`, 'error');
+                } else {
+                    showNotification(`❌ Failed to send email: ${error.message}`, 'error');
+                }
             }
         }
 

@@ -7,13 +7,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8080', 'http://127.0.0.1:8080', 'file://', '*'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.static('public')); // Serve static files if needed
 
 // Create Nodemailer transporter
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
@@ -137,16 +140,29 @@ app.post('/send-email', async (req, res) => {
       text: `Hi ${to_name || 'there'},\n\nGreat news! ${product_name} is now back in stock.\n\n${price ? `Price: ${price}\n` : ''}Status: Available\nChecked at: ${current_time || new Date().toLocaleString()}\n\n${product_url ? `View product: ${product_url}\n\n` : ''}Don't wait too long - popular items can go out of stock quickly!\n\nHappy shopping!\n\n---\nProductTracker - Real-time Availability Monitor`
     };
 
-    // Send email
-    const info = await transporter.sendMail(mailOptions);
-    
-    console.log('Email sent successfully:', info.messageId);
-    
-    res.json({
-      success: true,
-      messageId: info.messageId,
-      message: 'Email sent successfully'
-    });
+    // Send email or simulate in test mode
+    if (process.env.EMAIL_USER === 'test@gmail.com' || process.env.NODE_ENV === 'test') {
+      // Test mode - don't actually send email
+      console.log('Test mode: Email would be sent to:', to_email);
+      console.log('Email content preview:', mailOptions.subject);
+      
+      res.json({
+        success: true,
+        messageId: 'test-' + Date.now(),
+        message: 'Email sent successfully (test mode)'
+      });
+    } else {
+      // Production mode - actually send email
+      const info = await transporter.sendMail(mailOptions);
+      
+      console.log('Email sent successfully:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email sent successfully'
+      });
+    }
 
   } catch (error) {
     console.error('Email sending error:', error);
